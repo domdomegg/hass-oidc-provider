@@ -43,6 +43,15 @@ npx hass-oidc-provider
 
 </details>
 
+<details>
+<summary>Running with Docker</summary>
+
+```bash
+docker run -e 'HASS_OIDC_CONFIG={"hassUrl":"https://your-ha-instance.example.com","externalUrl":"https://hass-oidc-provider.yourdomain.com"}' -p 3001:3001 ghcr.io/domdomegg/hass-oidc-provider
+```
+
+</details>
+
 ### Config
 
 Only `externalUrl` is required. Everything else has sensible defaults.
@@ -106,4 +115,4 @@ To release:
 
 1. Use `npm version <major | minor | patch>` to bump the version
 2. Run `git push --follow-tags` to push with tags
-3. Wait for GitHub Actions to publish to the NPM registry.
+3. Wait for GitHub Actions to publish to the NPM registry and GHCR (Docker).
