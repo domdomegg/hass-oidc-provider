@@ -52,7 +52,7 @@ export const mintIdToken = async (
 	name: claims.name,
 	is_owner: claims.is_owner,
 	is_admin: claims.is_admin,
-	...(claims.nonce !== null && {nonce: claims.nonce}),
+	...(claims.nonce !== undefined && {nonce: claims.nonce}),
 })
 	.setProtectedHeader({alg: ALG, kid: KID})
 	.setIssuer(claims.issuer)

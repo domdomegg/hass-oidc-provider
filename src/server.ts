@@ -13,6 +13,7 @@ const ACCESS_TOKEN_TTL_MS = 3_600_000; // 1 hour
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 type PendingPayload = {
+	type: 'pending';
 	clientId: string;
 	redirectUri: string;
 	state?: string;
@@ -22,6 +23,7 @@ type PendingPayload = {
 };
 
 type AuthCodePayload = {
+	type: 'auth_code';
 	userId: string;
 	userName: string;
 	isOwner: boolean;
@@ -35,6 +37,7 @@ type AuthCodePayload = {
 };
 
 type AccessTokenPayload = {
+	type: 'access_token';
 	userId: string;
 	userName: string;
 	isOwner: boolean;
@@ -43,6 +46,7 @@ type AccessTokenPayload = {
 };
 
 type RefreshTokenPayload = {
+	type: 'refresh_token';
 	haRefreshToken: string;
 	clientId: string;
 	expiresAt: number;
@@ -115,6 +119,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 		}
 
 		const pending: PendingPayload = {
+			type: 'pending',
 			clientId: reqClientId,
 			redirectUri,
 			codeChallenge,
@@ -140,13 +145,37 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 		try {
 			const code = getString(req.query.code);
 			const sealedState = getString(req.query.state);
+			const haError = getString(req.query.error);
+			const haErrorDescription = getString(req.query.error_description);
+
+			if (haError) {
+				// HA returned an error (e.g. user denied access). Forward it to the client.
+				const pending = sealedState ? unseal<PendingPayload>(sealedState, encKey, 'pending') : undefined;
+				if (pending) {
+					const redirectUrl = new URL(pending.redirectUri);
+					redirectUrl.searchParams.set('error', haError);
+					if (haErrorDescription) {
+						redirectUrl.searchParams.set('error_description', haErrorDescription);
+					}
+
+					if (pending.state) {
+						redirectUrl.searchParams.set('state', pending.state);
+					}
+
+					res.redirect(redirectUrl.toString());
+				} else {
+					res.status(400).send(`Home Assistant login failed: ${haErrorDescription ?? haError}`);
+				}
+
+				return;
+			}
 
 			if (!code || !sealedState) {
 				res.status(400).send('Missing code or state');
 				return;
 			}
 
-			const pending = unseal<PendingPayload>(sealedState, encKey);
+			const pending = unseal<PendingPayload>(sealedState, encKey, 'pending');
 			if (!pending) {
 				res.status(400).send('Invalid or expired session');
 				return;
@@ -178,6 +207,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 
 			// Issue our own auth code (includes HA refresh token for later use)
 			const acPayload: AuthCodePayload = {
+				type: 'auth_code',
 				userId: user.id,
 				userName: user.name,
 				isOwner: user.is_owner,
@@ -224,6 +254,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 
 		res.json({
 			access_token: seal<AccessTokenPayload>({
+				type: 'access_token',
 				userId: user.id,
 				userName: user.name,
 				isOwner: user.is_owner,
@@ -234,6 +265,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 			expires_in: 3600,
 			id_token: idToken,
 			refresh_token: seal<RefreshTokenPayload>({
+				type: 'refresh_token',
 				haRefreshToken,
 				clientId: reqClientId,
 				expiresAt: Date.now() + REFRESH_TOKEN_TTL_MS,
@@ -269,7 +301,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 				// Auth codes are stateless sealed tokens, so they cannot be tracked as
 				// single-use (no server-side state). PKCE prevents code interception
 				// attacks, making replay a non-issue in practice.
-				const ac = unseal<AuthCodePayload>(code, encKey);
+				const ac = unseal<AuthCodePayload>(code, encKey, 'auth_code');
 				if (!ac) {
 					res.status(400).json({error: 'invalid_grant', error_description: 'Invalid or expired authorization code'});
 					return;
@@ -299,7 +331,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 					return;
 				}
 
-				const rt = unseal<RefreshTokenPayload>(refreshTokenStr, encKey);
+				const rt = unseal<RefreshTokenPayload>(refreshTokenStr, encKey, 'refresh_token');
 				if (!rt) {
 					res.status(400).json({error: 'invalid_grant', error_description: 'Invalid or expired refresh token'});
 					return;
@@ -349,7 +381,7 @@ export const createApp = (config: Config, signingKey: SigningKey, encKey: Buffer
 		}
 
 		const token = auth.slice(7);
-		const ac = unseal<AccessTokenPayload>(token, encKey);
+		const ac = unseal<AccessTokenPayload>(token, encKey, 'access_token');
 		if (!ac?.userId) {
 			res.status(401).json({error: 'invalid_token', error_description: 'Invalid or expired token'});
 			return;

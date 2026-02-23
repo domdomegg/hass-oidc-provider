@@ -21,7 +21,7 @@ export const seal = <T>(payload: T, key: Buffer): string => {
 	return Buffer.concat([iv, tag, encrypted]).toString('base64url');
 };
 
-export const unseal = <T extends {expiresAt: number}>(sealed: string, key: Buffer): T | undefined => {
+export const unseal = <T extends {type: string; expiresAt: number}>(sealed: string, key: Buffer, expectedType: T['type']): T | undefined => {
 	try {
 		const buf = Buffer.from(sealed, 'base64url');
 		const iv = buf.subarray(0, 12);
@@ -31,7 +31,7 @@ export const unseal = <T extends {expiresAt: number}>(sealed: string, key: Buffe
 		decipher.setAuthTag(tag);
 		const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 		const payload = JSON.parse(decrypted.toString()) as T;
-		if (payload.expiresAt < Date.now()) {
+		if (payload.type !== expectedType || payload.expiresAt < Date.now()) {
 			return undefined;
 		}
 
