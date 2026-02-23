@@ -15,14 +15,17 @@ export const createSigningKey = async (jwkJson?: string): Promise<SigningKey> =>
 	let privateKey: CryptoKey;
 	let baseJwk: JWK;
 
+	const stripPrivateFields = (jwk: JWK): JWK =>
+		Object.fromEntries(Object.entries(jwk).filter(([k]) => !['d', 'key_ops', 'ext'].includes(k))) as JWK;
+
 	if (jwkJson) {
 		const jwk = JSON.parse(jwkJson) as JWK;
 		privateKey = await importJWK(jwk, ALG) as CryptoKey;
-		baseJwk = Object.fromEntries(Object.entries(jwk).filter(([k]) => k !== 'd')) as JWK;
+		baseJwk = stripPrivateFields(jwk);
 	} else {
 		const keyPair = await generateKeyPair(ALG);
 		privateKey = keyPair.privateKey;
-		baseJwk = await exportJWK(keyPair.publicKey);
+		baseJwk = stripPrivateFields(await exportJWK(keyPair.publicKey));
 	}
 
 	return {
