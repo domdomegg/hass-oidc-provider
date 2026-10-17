@@ -11,7 +11,7 @@ export type Config = {
 	signingKey?: string;
 	/** Port to listen on (default 3001) */
 	port?: number;
-	/** Host to bind to (default 0.0.0.0) */
+	/** Host to bind to (default ::) */
 	host?: string;
 };
 
