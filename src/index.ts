@@ -11,7 +11,7 @@ const main = async () => {
 	const app = createApp(config, signingKey, encKey);
 
 	const port = config.port ?? 3001;
-	const host = config.host ?? '0.0.0.0';
+	const host = config.host ?? '::';
 	app.listen(port, host, () => {
 		console.log(`hass-oidc-provider listening on ${host}:${port}`);
 		console.log(`Home Assistant: ${config.hassUrl}`);

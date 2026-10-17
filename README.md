@@ -63,7 +63,7 @@ Only `externalUrl` is required. Everything else has sensible defaults.
 | `clientId` | No | `externalUrl` | OAuth client ID to register with HA |
 | `signingKey` | No | Auto-generated | Signing key for persistent tokens (see below) |
 | `port` | No | `3001` | Port to listen on |
-| `host` | No | `0.0.0.0` | Host to bind to |
+| `host` | No | `::` | Host to bind to |
 
 <details>
 <summary>Advanced: setting a signing key</summary>
